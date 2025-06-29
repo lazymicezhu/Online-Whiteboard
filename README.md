@@ -1,6 +1,6 @@
 # 多人在线像素涂鸦白板
 
-演示站：https://lazymicezhu.github.io/Online-Whiteboard/
+演示站：https://lazymicezhu.github.io/Online-Whiteboard/<br>
 一个基于 Firebase 的多人实时像素涂鸦白板应用。
 
 ## 功能特点
