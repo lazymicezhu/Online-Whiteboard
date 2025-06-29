@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多人在线像素涂鸦白板</title>
+    <link rel="stylesheet" href="styles/main.css">
+    
+    <!-- Firebase相关脚本 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-analytics.js"></script>
+    
+    <!-- 先加载配置脚本确保Firebase初始化 -->
+    <script src="scripts/config.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- 登录/注册界面 -->
+        <div id="auth-container" class="container">
+            <h1>多人在线像素涂鸦白板</h1>
+            <div class="auth-tabs">
+                <button id="login-tab-btn" class="auth-tab active">登录</button>
+                <button id="register-tab-btn" class="auth-tab">注册</button>
+            </div>
+            
+            <!-- 登录表单 -->
+            <div id="login-form" class="auth-form">
+                <h2>登录</h2>
+                <div class="input-group">
+                    <label for="login-nickname">昵称</label>
+                    <input type="text" id="login-nickname" placeholder="请输入昵称">
+                </div>
+                <div class="input-group">
+                    <label for="login-password">密码</label>
+                    <input type="password" id="login-password" placeholder="请输入密码">
+                </div>
+                <button id="login-submit-btn">登录</button>
+                <p class="switch-form-text">没有账号？<a href="#" id="switch-to-register">立即注册</a></p>
+                <p id="login-status" style="color: red; margin-top: 10px;"></p>
+            </div>
+            
+            <!-- 注册表单 -->
+            <div id="register-form" class="auth-form hidden">
+                <h2>注册新账号</h2>
+                <div class="input-group">
+                    <label for="register-nickname">昵称</label>
+                    <input type="text" id="register-nickname" placeholder="请输入昵称">
+                </div>
+                <div class="input-group">
+                    <label for="register-password">密码</label>
+                    <input type="password" id="register-password" placeholder="请输入密码">
+                </div>
+                <div class="avatar-selection">
+                    <label>选择头像</label>
+                    <div class="avatar-options">
+                        <img src="assets/avatar1.png" class="avatar-option" data-avatar="1" alt="头像1">
+                        <img src="assets/avatar2.png" class="avatar-option" data-avatar="2" alt="头像2">
+                        <img src="assets/avatar3.png" class="avatar-option" data-avatar="3" alt="头像3">
+                    </div>
+                </div>
+                <button id="register-submit-btn">注册并开始创作</button>
+                <p class="switch-form-text">已有账号？<a href="#" id="switch-to-login">立即登录</a></p>
+                <p id="register-status" style="color: red; margin-top: 10px;"></p>
+            </div>
+        </div>
+
+        <!-- 主画布界面 -->
+        <div id="main-container" class="container hidden">
+            <div class="header">
+                <div class="user-info">
+                    <img id="user-avatar" src="" alt="用户头像">
+                    <span id="user-nickname"></span>
+                    <span id="user-type"></span>
+                </div>
+                <div class="online-users-ticker">
+                    <div class="ticker-wrapper">
+                        <div id="online-users-scroll"></div>
+                    </div>
+                </div>
+                <div class="drawing-info">
+                    <span id="remaining-draws">剩余操作次数: 60</span>
+                    <span id="timer">刷新时间: 60秒</span>
+                </div>
+                <button id="logout-btn">退出</button>
+                <button id="admin-panel-btn" class="hidden">管理员面板</button>
+            </div>
+
+            <div class="content">
+                <!-- 浮动工具面板 -->
+                <div class="floating-tools-panel">
+                    <div class="panel-header">
+                        <h3>工具箱</h3>
+                        <button id="minimize-panel" title="最小化面板"><i class="minimize-icon">—</i></button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="color-picker">
+                            <h4>选择颜色</h4>
+                            <div class="colors-container">
+                                <div class="color-option" data-color="#000000" style="background-color: #000000;"></div>
+                                <div class="color-option" data-color="#FFFFFF" style="background-color: #FFFFFF;"></div>
+                                <div class="color-option" data-color="#FF0000" style="background-color: #FF0000;"></div>
+                                <div class="color-option" data-color="#00FF00" style="background-color: #00FF00;"></div>
+                                <div class="color-option" data-color="#0000FF" style="background-color: #0000FF;"></div>
+                                <div class="color-option" data-color="#FFFF00" style="background-color: #FFFF00;"></div>
+                                <div class="color-option" data-color="#00FFFF" style="background-color: #00FFFF;"></div>
+                                <div class="color-option" data-color="#FF00FF" style="background-color: #FF00FF;"></div>
+                                <div class="color-option" data-color="#FFA500" style="background-color: #FFA500;"></div>
+                                <div class="color-option" data-color="#800080" style="background-color: #800080;"></div>
+                                <div class="color-option" data-color="#A52A2A" style="background-color: #A52A2A;"></div>
+                                <div class="color-option" data-color="#008000" style="background-color: #008000;"></div>
+                            </div>
+                            <div class="current-color-preview">
+                                <div id="current-color"></div>
+                                <span>当前颜色</span>
+                            </div>
+                        </div>
+                        <div class="tools">
+                            <h4>绘图工具</h4>
+                            <div class="tools-container">
+                                <button id="draw-tool" class="tool active" data-tool="draw">绘制</button>
+                                <button id="erase-tool" class="tool" data-tool="erase">擦除</button>
+                            </div>
+                        </div>
+                        <div class="brush-size">
+                            <h4>画笔粗细</h4>
+                            <div class="brush-options">
+                                <button class="brush-option active" data-size="1">
+                                    <div class="brush-preview" style="width: 1px; height: 1px;"></div>
+                                    <span>1px</span>
+                                </button>
+                                <button class="brush-option" data-size="2">
+                                    <div class="brush-preview" style="width: 2px; height: 2px;"></div>
+                                    <span>2px</span>
+                                </button>
+                                <button class="brush-option vip-only" data-size="3">
+                                    <div class="brush-preview" style="width: 3px; height: 3px;"></div>
+                                    <span>3px</span>
+                                    <span class="restriction-badge">VIP</span>
+                                </button>
+                                <button class="brush-option vip-only" data-size="4">
+                                    <div class="brush-preview" style="width: 4px; height: 4px;"></div>
+                                    <span>4px</span>
+                                    <span class="restriction-badge">VIP</span>
+                                </button>
+                                <button class="brush-option admin-only" data-size="5">
+                                    <div class="brush-preview" style="width: 5px; height: 5px;"></div>
+                                    <span>5px</span>
+                                    <span class="restriction-badge">管理员</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="canvas-zoom">
+                            <h4>画布缩放</h4>
+                            <div class="zoom-controls">
+                                <button id="zoom-out" class="zoom-btn" onclick="if(window.canvasManager){window.canvasManager.zoomLevel=Math.max(0.5,parseFloat((window.canvasManager.zoomLevel-0.1).toFixed(1)));this.nextElementSibling.textContent=Math.round(window.canvasManager.zoomLevel*100)+'%';document.getElementById('pixel-canvas').style.transform=`translate(-50%, -50%) scale(${window.canvasManager.zoomLevel})`;window.canvasManager.drawCanvasBorder();localStorage.setItem('canvasZoom',window.canvasManager.zoomLevel.toString());}">-</button>
+                                <span id="zoom-level">100%</span>
+                                <button id="zoom-in" class="zoom-btn" onclick="if(window.canvasManager){window.canvasManager.zoomLevel=Math.min(3,parseFloat((window.canvasManager.zoomLevel+0.1).toFixed(1)));this.previousElementSibling.textContent=Math.round(window.canvasManager.zoomLevel*100)+'%';document.getElementById('pixel-canvas').style.transform=`translate(-50%, -50%) scale(${window.canvasManager.zoomLevel})`;window.canvasManager.drawCanvasBorder();localStorage.setItem('canvasZoom',window.canvasManager.zoomLevel.toString());}">+</button>
+                                <button id="zoom-reset" class="zoom-btn" onclick="if(window.canvasManager){window.canvasManager.zoomLevel=1;document.getElementById('zoom-level').textContent='100%';document.getElementById('pixel-canvas').style.transform='translate(-50%, -50%) scale(1)';window.canvasManager.drawCanvasBorder();localStorage.setItem('canvasZoom','1');}">重置</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 最小化后的面板 -->
+                    <div class="minimized-panel hidden">
+                        <button id="expand-panel" title="展开面板"><i class="expand-icon">+</i></button>
+                        <div id="mini-color" class="mini-tool"></div>
+                        <div id="mini-brush" class="mini-tool"></div>
+                    </div>
+                </div>
+                <div class="main-workspace">
+                    <div class="canvas-container">
+                        <canvas id="pixel-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 管理员面板 -->
+        <div id="admin-panel" class="container hidden">
+            <h2>管理员面板</h2>
+            <div class="admin-content">
+                <div class="users-management">
+                    <h3>用户管理</h3>
+                    <div class="search-box">
+                        <input type="text" id="search-user" placeholder="搜索用户...">
+                    </div>
+                    <table id="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>昵称</th>
+                                <th>类型</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body"></tbody>
+                    </table>
+                </div>
+                
+                <div class="canvas-management">
+                    <h3>画布管理</h3>
+                    <div class="canvas-size-control">
+                        <div class="size-control-group">
+                            <label for="canvas-width">画布宽度 (像素):</label>
+                            <input type="number" id="canvas-width" min="500" max="3000" step="100" value="1000">
+                        </div>
+                        <div class="size-control-group">
+                            <label for="canvas-height">画布高度 (像素):</label>
+                            <input type="number" id="canvas-height" min="500" max="3000" step="100" value="1000">
+                        </div>
+                        <button id="apply-canvas-size">应用新尺寸</button>
+                        <p class="canvas-size-warning">警告：减小画布尺寸可能会导致边缘像素丢失！</p>
+                    </div>
+                    
+                    <div class="brush-size-control">
+                        <h4>画笔粗细设置</h4>
+                        <div class="brush-control-group">
+                            <label for="max-brush-size">最大画笔粗细 (像素):</label>
+                            <input type="number" id="max-brush-size" min="5" max="20" step="1" value="5">
+                        </div>
+                        <div class="brush-options-preview">
+                            <h5>可用画笔选项预览:</h5>
+                            <div id="brush-size-preview" class="brush-size-preview">
+                                <!-- 这里将动态生成预览内容 -->
+                            </div>
+                        </div>
+                        <button id="apply-brush-size">应用新画笔设置</button>
+                        <p class="brush-size-note">注意：更大的画笔可能会导致绘制性能下降</p>
+                    </div>
+                </div>
+                
+                <div class="admin-actions">
+                    <button id="back-to-canvas">返回画布</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 聊天悬浮球 -->
+        <div class="chat-floating-ball">
+            <div class="chat-ball" id="chat-ball">
+                <span class="unread-badge hidden">0</span>
+                <i class="chat-icon">💬</i>
+            </div>
+            
+            <div class="chat-container hidden">
+                <div class="chat-header">
+                    <h3>聊天室</h3>
+                    <button id="minimize-chat" title="最小化聊天"><i class="minimize-icon">✕</i></button>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="system-message">欢迎来到聊天室！请友善交流。</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="输入消息..." maxlength="100">
+                    <button id="send-message">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自定义脚本 - 先加载管理模块再加载主逻辑 -->
+    <script src="scripts/admin.js"></script>
+    <script src="scripts/user.js"></script>
+    <script src="scripts/canvas.js"></script>
+    <script src="scripts/chat.js"></script>
+    <script src="scripts/main.js"></script>
+    
+    <!-- 确保所有模块实例化 -->
+    <script>
+        // 检查并确保全局对象实例化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("检查全局对象实例化...");
+            
+            // 延迟执行以确保所有脚本都已加载
+            setTimeout(function() {
+                try {
+                    // 检查Firebase初始化状态
+                    if (!firebase.apps.length) {
+                        console.error("Firebase未初始化!");
+                        
+                        // 尝试手动初始化
+                        const firebaseConfig = {
+                            apiKey: "AIzaSyD4FhGQNWQjlg6YAW9Mh3jHn3jLenNF5U0",
+                            authDomain: "lazymice-web-game.firebaseapp.com",
+                            projectId: "lazymice-web-game",
+                            storageBucket: "lazymice-web-game.firebasestorage.app",
+                            messagingSenderId: "1028577806755",
+                            appId: "1:1028577806755:web:f7216cac01d9290826f216",
+                            measurementId: "G-E3MJJZHPPR",
+                            databaseURL: "https://lazymice-web-game-default-rtdb.asia-southeast1.firebasedatabase.app"
+                        };
+                        
+                        try {
+                            firebase.initializeApp(firebaseConfig);
+                            window.db = firebase.database();
+                            window.auth = firebase.auth();
+                        } catch (e) {
+                            console.error("手动初始化Firebase失败:", e);
+                        }
+                    }
+                    
+                    // 检查AdminPanel
+                    if (typeof AdminPanel === 'undefined' || !window.adminPanel) {
+                        console.warn("AdminPanel未定义或未初始化，尝试重新加载");
+                        
+                        // 动态加载admin.js脚本
+                        const script = document.createElement('script');
+                        script.src = 'scripts/admin.js';
+                        script.onload = function() {
+                            console.log("Admin脚本已重新加载");
+                            // 初始化adminPanel
+                            if (typeof AdminPanel !== 'undefined') {
+                                window.adminPanel = new AdminPanel();
+                                window.adminPanel.init();
+                                console.log("AdminPanel已手动初始化");
+                            }
+                        };
+                        document.head.appendChild(script);
+                    }
+                    
+                    // 检查userManager
+                    if (typeof userManager === 'undefined' || userManager === null) {
+                        console.error("userManager未定义!");
+                        
+                        // 尝试手动创建userManager
+                        window.userManager = new UserManager();
+                        
+                        if (typeof userManager !== 'undefined') {
+                            // 手动初始化
+                            userManager.init();
+                        }
+                    }
+                    
+                    // 检查其他管理器
+                    if (typeof canvasManager === 'undefined' || canvasManager === null) {
+                        console.error("canvasManager未定义!");
+                        
+                        // 尝试手动创建
+                        window.canvasManager = new CanvasManager();
+                        canvasManager.init();
+                    }
+                    
+                    if (typeof adminPanel === 'undefined' || adminPanel === null) {
+                        console.error("adminPanel未定义!");
+                        
+                        // 如果AdminPanel类已定义但实例未创建
+                        if (typeof AdminPanel !== 'undefined') {
+                            // 尝试手动创建
+                            window.adminPanel = new AdminPanel();
+                            window.adminPanel.init();
+                            console.log("adminPanel已手动创建和初始化");
+                        }
+                    }
+                } catch (error) {
+                    console.error("初始化检查失败:", error);
+                }
+            }, 1000);
+        });
+    </script>
+
+    <!-- 临时数据清理脚本 - 需要时取消下面的注释，使用后请恢复注释状态 -->
+     <script src="delete-data.js"></script> 
+</body>
+</html> 
