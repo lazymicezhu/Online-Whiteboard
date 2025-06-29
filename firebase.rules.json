@@ -1,0 +1,63 @@
+{
+  "rules": {
+    ".read": "false",
+    ".write": "false",
+    
+    "users": {
+      ".read": "true",
+      ".write": "true",
+      "$uid": {
+        ".read": "true",
+        ".write": "true"
+      }
+    },
+    
+    "online_users": {
+      ".read": "true",
+      ".write": "true",
+      "$uid": {
+        ".read": "true",
+        ".write": "true"
+      }
+    },
+    
+    "pixels": {
+      ".read": "true",
+      ".write": "true",
+      "$xy": {
+        ".read": "true",
+        ".write": "true"
+      }
+    },
+    
+    "draw_limits": {
+      ".read": "true",
+      ".write": "true",
+      "$uid": {
+        ".read": "true",
+        ".write": "true"
+      }
+    },
+    
+    "chats": {
+      ".read": "true",
+      ".write": "true",
+      "$message_id": {
+        ".write": "true",
+        ".validate": "newData.hasChild('timestamp') && (newData.hasChild('isSystem') || (newData.hasChild('userId') && newData.hasChild('message') && newData.hasChild('sender')))",
+        "message": {
+          ".validate": "newData.isString() && newData.val().length <= 300"
+        }
+      }
+    },
+    
+    "config": {
+      ".read": "true",
+      ".write": "true",
+      "brushSizes": {
+        ".read": "true",
+        ".write": "true"
+      }
+    }
+  }
+} 
